@@ -1,0 +1,181 @@
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
+
+//Declaring Variables required
+volatile long HTime;                    
+volatile long LTime;
+float TTime;          // Variable for Measuring time Constant
+float frequency;
+float capacitance_nF;
+float capacitance_pF;
+float capacitance_uF;
+
+unsigned long startTime;
+unsigned long elapsedTime;
+float microFarads;                
+float nanoFarads;
+
+#define analogPin      0          
+#define chargePin      13         
+#define dischargePin   8        
+#define resistorValue  10000.0F  // Value of resitor for higher value capacitor 
+
+void setup()
+{
+    Serial.begin(9600);
+
+    
+    pinMode(8,INPUT);            //pin 8 as signal input to arduino
+    
+    pinMode(chargePin, OUTPUT);     
+    digitalWrite(chargePin, LOW); 
+
+    // Printing on LCD Display
+    lcd.begin(16, 2);
+    delay(3000);
+    lcd.setCursor(0,0);
+    lcd.print("   EI PROJECT   ");
+    delay(3000);
+    lcd.clear();
+    
+    lcd.setCursor(0,0);
+    lcd.print("  CAPACITANCE   ");
+    lcd.setCursor(0,1);
+    lcd.print("     METER");
+    delay(3000);
+
+    lcd.clear();
+    lcd.println("Enter Choice:   ");
+
+}
+
+void loop()
+{
+  // Reading user's choice
+  Serial.println("1: 1 nF to 10 uF     2: 10 uF to 1000 uF"); 
+  Serial.println("Enter Choice: ");
+  while (Serial.available() == 0);
+  int val = Serial.parseInt(); // Read user intput
+ 
+  if (val == 1)
+  {
+   
+    Serial.println("Option Selected: ");
+    Serial.print(val);
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Enter capacitor");
+    lcd.setCursor(0,1);
+    lcd.print("in Position 1");
+    delay(3000);
+
+    // Measures the capacitor values upto 10 uF
+  
+  
+    for (int i=0;i<5;i++)        //measure time duration five times
+      {
+          LTime=(pulseIn(8,HIGH)+LTime)/2;        //get average for each cycle
+          HTime=(pulseIn(8,LOW)+HTime)/2;
+      }
+    
+      // Time constant for capacitor
+      TTime = HTime+LTime;
+      // Serial.println(TTime);
+      frequency=1000000/TTime;
+
+      
+      // In Astable Mode,
+      // C = (1.44*1000000000)/((R1 + 2*R2)*frequency) nF  
+      capacitance_nF = (1.44*1000000000)/(21000*frequency);   //calculating the Capacitance in nF
+      if ((capacitance_nF > 0) and (capacitance_nF <= 1000))
+      {
+        // Printing Capacitance Value on LCD
+        
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("SCALE: 1nF-10uF");
+        
+        lcd.setCursor(0,1);
+        lcd.print(capacitance_nF);
+        lcd.print(" nF   ");
+        delay(500);
+      }
+  
+      else if (capacitance_nF < 0)
+      {
+        // If capacitance value is less than 0 nF print its value in pF
+        capacitance_pF = capacitance_nF*1000 ; 
+
+        // Printing Capacitance Value on LCD
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("SCALE: 1nF-10uF");
+        
+        lcd.setCursor(0,1);
+        lcd.print(capacitance_pF);
+        lcd.print(" pF   ");
+        delay(500);
+      }
+  
+      else if ((capacitance_nF > 1000))
+      {
+        // If capacitance value is greater than 1000 nF print its value in uF
+        capacitance_uF = capacitance_nF*0.001 ; 
+        
+        // Printing Capacitance Value on LCD
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("SCALE: 1nF-10uF");
+        
+        lcd.setCursor(0,1);
+        lcd.print("Value: ");
+        lcd.print(capacitance_uF);
+        lcd.print(" uF   ");
+        delay(500); 
+      }
+  }
+  
+  else if (val == 2)
+  {
+        Serial.println("Option Selected: ");
+        Serial.println(val);
+
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Enter capacitor");
+        lcd.setCursor(0,1);
+        lcd.print("in Position 2");
+        delay(4000);
+
+        // Charging Capacitor
+        digitalWrite(chargePin, HIGH);  
+        startTime = micros();               // Time Constant for Capaccitor
+        
+        // Wait till charging of capacitor
+        while(analogRead(analogPin) < 648){       
+        }
+      
+        elapsedTime= micros() - startTime;
+        microFarads = ((float)elapsedTime / resistorValue) ; // Capacitor Value in uF
+                 
+        // Print Capacitor Value on LCD
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("SCALE: 10uF-1000uF");
+        lcd.setCursor(0,1);  
+        lcd.print(microFarads);
+        lcd.setCursor(14,1);        
+        lcd.print("uF");   
+        delay(500);    
+       
+        
+        digitalWrite(chargePin, LOW);            
+        pinMode(dischargePin, OUTPUT);            
+        digitalWrite(dischargePin, LOW);     // Discharging the capacitor     
+        while(analogRead(analogPin) > 0){         
+        }                                   //Wait till the capaccitor is discharged
+      
+        pinMode(dischargePin, INPUT);      
+      }
+}
